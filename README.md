@@ -42,9 +42,11 @@ Después de compilar, ejecuta el juego con:
 ```sh
 wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
 wget -O linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+chmod +x appimagetool linuxdeploy
 ```
 🔹 2. Generar el AppImage con el script
 ```sh
+chmod +x make-wolfenstein-rpg-linux-appimage.sh
 ./make-wolfenstein-rpg-linux-appimage.sh ./appimagetool ./linuxdeploy $(pwd) ./build/src/WolfensteinRPG
 ```
 
@@ -122,9 +124,11 @@ After compiling, run the game with:
 ```sh
 wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
 wget -O linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+chmod +x appimagetool linuxdeploy
 ```
 🔹 2. Generate the AppImage using the script
 ```sh
+chmod +x make-wolfenstein-rpg-linux-appimage.sh
 ./make-wolfenstein-rpg-linux-appimage.sh ./appimagetool ./linuxdeploy $(pwd) ./build/src/WolfensteinRPG
 ```
 
