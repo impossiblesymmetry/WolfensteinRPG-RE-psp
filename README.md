@@ -2,6 +2,8 @@
 
 ![Imagen1](https://github.com/user-attachments/assets/cbfab4c2-5310-45cf-a694-7a74e0a299bd)<br>
 
+https://www.doomworld.com/forum/topic/151475
+
 ## Español
 Wolfenstein RPG ingeniería inversa por [GEC]<br />
 Creado por Erick Vásquez García.
