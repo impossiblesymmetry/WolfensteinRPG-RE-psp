@@ -305,8 +305,28 @@ bool Sound::openAL_LoadAudioFileData(const char* fileName, ALenum* format, ALvoi
 		// Reading file
 		if (!strncmp((char*)&IS.data[IS.cursor], "data", 4)) {
 			IS.cursor += 4; // skip "data" name
-			*size = IS.readInt(); // Get size of the data.
+			if (IS.cursor + 4 > IS.fileSize) {
+				PspLog::write("WAV data chunk size missing: %s\n", fileName);
+				IS.close();
+				return false;
+			}
+			*size = (ALsizei)IS.data[IS.cursor]
+				| ((ALsizei)IS.data[IS.cursor + 1] << 8)
+				| ((ALsizei)IS.data[IS.cursor + 2] << 16)
+				| ((ALsizei)IS.data[IS.cursor + 3] << 24);
+			IS.cursor += 4;
+			if (*size < 0 || *size > IS.fileSize - IS.cursor) {
+				PspLog::write("invalid WAV data size %d for %s (remaining %d)\n",
+					*size, fileName, IS.fileSize - IS.cursor);
+				IS.close();
+				return false;
+			}
 			*data = (ALvoid*)malloc(*size);
+			if (*data == nullptr) {
+				PspLog::write("WAV allocation failed for %s (%d bytes)\n", fileName, *size);
+				IS.close();
+				return false;
+			}
 			IS.read((uint8_t*)*data, 0, *size); // Read audio data into buffer.
 		}
 
