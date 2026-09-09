@@ -9,6 +9,7 @@
 #include "Canvas.h"
 #include "Image.h"
 #include "Render.h"
+#include "PspLog.h"
 #include "Game.h"
 #include "Text.h"
 #include "GLES.h"
@@ -949,6 +950,12 @@ void Render::renderSprite(int x, int y, int z, int tileNum, int frame, int flags
 void Render::renderSprite(int x, int y, int z, int tileNum, int frame, int flags, int renderMode, int scaleFactor, int renderFlags, int palIndex) {
 	Applet* app = CAppContainer::getInstance()->app;
 	int n10 = scaleFactor;
+	#ifdef WOLFENSTEIN_PSP
+	if (tileNum >= Enums::TILENUM_FIRST_DOOR && tileNum <= Enums::TILENUM_LAST_DOOR) {
+		PspLog::write("door sprite tile=%d frame=%d flags=0x%08x scale=%d\n",
+			tileNum, frame, flags, scaleFactor);
+	}
+	#endif
 
 	if ((flags & 0x80000000) != 0x0) { // SPRITE_FLAG_DOORLERP
 		scaleFactor = 65536;

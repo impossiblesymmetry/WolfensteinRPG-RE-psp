@@ -231,6 +231,9 @@ void Sound::openAL_LoadSound(int resID, Sound::SoundStream* channel) {
 }
 
 bool Sound::openAL_LoadWAVFromFile(ALuint bufferId, const char* fileName) {
+	#ifdef WOLFENSTEIN_PSP
+	return this->openAL_LoadWAVDirect(bufferId, fileName);
+	#else
 	ALsizei freq;
 	ALenum format;
 	void* data = nullptr;
@@ -254,7 +257,72 @@ bool Sound::openAL_LoadWAVFromFile(ALuint bufferId, const char* fileName) {
 	}
 
 	return false;
+	#endif
 }
+
+#ifdef WOLFENSTEIN_PSP
+bool Sound::openAL_LoadWAVDirect(ALuint bufferId, const char* fileName) {
+	InputStream IS;
+	if (!this->openAL_OpenAudioFile(fileName, &IS)) {
+		return false;
+	}
+
+	wav_header_t header;
+	IS.read((uint8_t*)&header, 0, sizeof(header));
+	if (strncmp(header.chunkID, "RIFF", 4) != 0 ||
+		strncmp(header.format, "WAVE", 4) != 0 ||
+		strncmp(header.subchunk1ID, "fmt ", 4) != 0 ||
+		header.audioFormat != 1 || header.subchunk1Size < 16) {
+		PspLog::write("invalid WAV header: %s\n", fileName);
+		IS.close();
+		return false;
+	}
+
+	IS.cursor += header.subchunk1Size - 16;
+	while (IS.cursor + 8 <= IS.fileSize &&
+		strncmp((char*)&IS.data[IS.cursor], "data", 4) != 0) {
+		uint32_t chunkSize = (uint32_t)IS.data[IS.cursor + 4]
+			| ((uint32_t)IS.data[IS.cursor + 5] << 8)
+			| ((uint32_t)IS.data[IS.cursor + 6] << 16)
+			| ((uint32_t)IS.data[IS.cursor + 7] << 24);
+		IS.cursor += 8 + chunkSize;
+	}
+	if (IS.cursor + 8 > IS.fileSize) {
+		PspLog::write("WAV data chunk missing: %s\n", fileName);
+		IS.close();
+		return false;
+	}
+
+	IS.cursor += 4;
+	uint32_t size = (uint32_t)IS.data[IS.cursor]
+		| ((uint32_t)IS.data[IS.cursor + 1] << 8)
+		| ((uint32_t)IS.data[IS.cursor + 2] << 16)
+		| ((uint32_t)IS.data[IS.cursor + 3] << 24);
+	IS.cursor += 4;
+	if (size > (uint32_t)(IS.fileSize - IS.cursor)) {
+		PspLog::write("invalid WAV data size %u: %s\n", size, fileName);
+		IS.close();
+		return false;
+	}
+
+	ALenum format;
+	AudioStreamBasicDescription description{};
+	description.mFormatID = 'lpcm';
+	description.mChannelsPerFrame = header.numChannels;
+	description.mSampleRate = header.sampleRate;
+	description.mBitsPerChannel = header.bitsPerSample;
+	if (!this->openAL_GetALFormat(description, &format)) {
+		PspLog::write("unsupported WAV format: %s\n", fileName);
+		IS.close();
+		return false;
+	}
+
+	alBufferData(bufferId, format, IS.data + IS.cursor, size, header.sampleRate);
+	OpenAL_ERROR(939);
+	IS.close();
+	return true;
+}
+#endif
 
 bool Sound::openAL_LoadAudioFileData(const char* fileName, ALenum* format, ALvoid** data, ALsizei* size, ALsizei* freq) {
 	InputStream IS;

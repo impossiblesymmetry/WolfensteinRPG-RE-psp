@@ -1122,6 +1122,9 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	ct->prev->next = ct;
 	ct->width = width;
 	ct->height = height;
+	#ifdef WOLFENSTEIN_PSP
+	PspLog::write("texture media=%d dimensions=%d x %d data=%p\n", mediaID, width, height, data);
+	#endif
 	printf("Allocating media ID %i, %ix%i, activeTexels = %3.1f meg\n", (int)((intptr_t)ct - (intptr_t)this->chains) / sizeof(glChain), width, height, BYTES_TO_MEGABYTES(this->activeTexels));
 
 	glGenTextures(1, &ct->texnum);
@@ -1132,6 +1135,12 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	//glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_PALETTE8_RGB5_A1_OES, width, height, 0, height * width + 512, data);
 
 	uint16_t* texData = (uint16_t*)malloc(width * height * 2);
+	if (texData == nullptr) {
+		PspLog::write("texture allocation failed media=%d bytes=%d\n", mediaID, width * height * 2);
+		glDeleteTextures(1, &ct->texnum);
+		ct->texnum = 0;
+		return;
+	}
 	uint16_t* texPal = (uint16_t*)data;
 	uint8_t* texData8 = (uint8_t*)data + 512;
 	for (int i = 0; i < height; i++) {

@@ -109,6 +109,9 @@ public:
 	void openAL_LoadSound(int resID, Sound::SoundStream* channel);
 	bool openAL_LoadWAVFromFile(ALuint bufferId, const char* fileName);
 	bool openAL_LoadAudioFileData(const char* fileName, ALenum* format, ALvoid** data, ALsizei* size, ALsizei* freq);
+#ifdef WOLFENSTEIN_PSP
+	bool openAL_LoadWAVDirect(ALuint bufferId, const char* fileName);
+#endif
 	bool openAL_OpenAudioFile(const char* fileName, InputStream* IS);
 	bool openAL_LoadAllSounds();
 
