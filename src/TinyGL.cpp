@@ -10,6 +10,7 @@
 #include "Render.h"
 #include "TinyGL.h"
 #include "Span.h"
+#include "PspLog.h"
 
 
 TinyGL::TinyGL() {
@@ -24,14 +25,28 @@ bool TinyGL::startup(int screenWidth, int screenHeight) {
 	Canvas* canvas = app->canvas;
 
 	//printf("TinyGL::startup, w [%d], h [%d]\n", screenWidth, screenHeight);
+	PspLog::write("TinyGL dimensions: %d x %d, viewRect: %d,%d %d x %d\n",
+		screenWidth, screenHeight, canvas->viewRect[0], canvas->viewRect[1],
+		canvas->viewRect[2], canvas->viewRect[3]);
 
 	this->scratchPalette = new uint16_t[256];
+	if (this->scratchPalette == nullptr) {
+		PspLog::write("TinyGL scratch palette allocation failed\n");
+		return false;
+	}
 	this->screenWidth = screenWidth;
 	this->screenHeight = screenHeight;
 	this->columnScale = new int[screenWidth];
+	if (this->columnScale == nullptr) {
+		PspLog::write("TinyGL column scale allocation failed (%d entries)\n", screenWidth);
+		return false;
+	}
+	PspLog::stage("TinyGL buffers allocated");
 
 	this->setViewport(canvas->viewRect[0], canvas->viewRect[1], canvas->viewRect[2], canvas->viewRect[3]);
+	PspLog::stage("TinyGL viewport set");
 	this->setView( 0, 0, 0, 0, 0, 0, 281, 281);
+	PspLog::stage("TinyGL view set");
 	this->fogMin = 32752;
 	this->fogRange = 1;
 	this->fogColor = 0;

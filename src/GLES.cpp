@@ -15,6 +15,7 @@
 #include "Enums.h"
 #include "Image.h"
 #include "Utils.h"
+#include "PspLog.h"
 
 gles* _glesObj;
 
@@ -81,6 +82,7 @@ void gles::SetGLState() {
 
 	PFNGLACTIVETEXTUREPROC glActiveTexture = (PFNGLACTIVETEXTUREPROC)SDL_GL_GetProcAddress("glActiveTexture");
 	PFNGLCLIENTACTIVETEXTUREPROC glClientActiveTexture = (PFNGLCLIENTACTIVETEXTUREPROC)SDL_GL_GetProcAddress("glClientActiveTexture");
+	PspLog::write("GL texture functions: active=%p clientActive=%p\n", glActiveTexture, glClientActiveTexture);
 
 	glViewport(this->vPortRect[0], this->vPortRect[1], this->vPortRect[2], this->vPortRect[3]);
 	glScissor(this->vPortRect[0], this->vPortRect[1], this->vPortRect[2], this->vPortRect[3]);
@@ -93,8 +95,12 @@ void gles::SetGLState() {
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_ALPHA_TEST);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glClientActiveTexture(GL_TEXTURE0);
-	glActiveTexture(GL_TEXTURE0);
+	if (glClientActiveTexture != nullptr) {
+		glClientActiveTexture(GL_TEXTURE0);
+	}
+	if (glActiveTexture != nullptr) {
+		glActiveTexture(GL_TEXTURE0);
+	}
 	glVertexPointer(4, GL_FLOAT, sizeof(Vertex), this->immediate);
 	glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), this->immediate[0].st);
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -1246,7 +1252,9 @@ void gles::DrawPortalTexture(Image* img, int x, int y, int w, int h, float tx, f
 	}
 
 	glEnable(GL_TEXTURE_2D);
-	glActiveTexture(GL_TEXTURE0);
+	if (glActiveTexture != nullptr) {
+		glActiveTexture(GL_TEXTURE0);
+	}
 	glBindTexture(GL_TEXTURE_2D, img->texture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);

@@ -29,6 +29,7 @@
 #include "Input.h"
 #include "CardGames.h"
 #include "DrivingGame.h"
+#include "PspLog.h"
 
 #include "Utils.h"
 
@@ -3625,7 +3626,9 @@ void Canvas::logoState() {
 				this->ignoreFrameInput = 1;
 			}
 			else {
+				PspLog::stage("leave startup logo");
 				this->backToMain(true);
+				PspLog::stage("startup logo transition complete");
 			}
 			return;
 		}
@@ -3634,7 +3637,9 @@ void Canvas::logoState() {
 	}
 	else {
 		if (!app->sound->soundsLoaded) {
+			PspLog::stage("cache sounds");
 			app->sound->cacheSounds();
+			PspLog::stage("sounds cached");
 		}
 	}
 
@@ -4232,6 +4237,7 @@ void Canvas::startSpeedTest(bool b) {
 
 void Canvas::backToMain(bool b) {
 	Applet* app = CAppContainer::getInstance()->app;
+	PspLog::stage("backToMain begin");
 
 	if (this->state != 9) {
 		app->sound->soundStop();
@@ -4243,12 +4249,18 @@ void Canvas::backToMain(bool b) {
 	app->game->unloadMapData();
 	app->render->unloadMap();
 	app->render->endFade();
+	PspLog::stage("backToMain map cleanup complete");
 
-	app->menuSystem->imgMainBG->~Image();
+	if (app->menuSystem->imgMainBG != nullptr) {
+		app->menuSystem->imgMainBG->~Image();
+	}
 	app->menuSystem->imgMainBG = app->loadImage("logo.bmp", true);
 
-	app->menuSystem->imgLogo->~Image();
+	if (app->menuSystem->imgLogo != nullptr) {
+		app->menuSystem->imgLogo->~Image();
+	}
 	app->menuSystem->imgLogo = app->loadImage("logo2.bmp", true);
+	PspLog::stage("backToMain menu images loaded");
 
 	if (b) {
 		this->clearEvents(1);
@@ -6247,7 +6259,7 @@ void Canvas::drawMovieEffects(Graphics* graphics, int time, int x, int y)
 	for (int i = 0, currentTime = time; i < effectCount; ++i, currentTime += effectInterval) {
 		int* data = &effectData[i * 6];
 
-		// Validación de la cámara activa
+		// Validaciï¿½n de la cï¿½mara activa
 		if (data[3] <= app->game->activeCameraKey && data[4] == -1) {
 			data[4] = time;
 			data[5] += time;

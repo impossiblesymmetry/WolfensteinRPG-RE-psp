@@ -550,7 +550,6 @@ void Render::FinalizeMedia() {
 	IS.close();
 	this->_gles->CreateAllActiveTextures();
 	app->canvas->updateLoadingBar(false);
-	IS.~InputStream();
 }
 
 bool Render::beginLoadMap(int mapNameID) {
@@ -1234,8 +1233,8 @@ void Render::drawNodeLines(short n) {
 	Applet* app = CAppContainer::getInstance()->app;
 
 	// [GEC]
-	// Verifica si el jugador ha llegado completamente a su destino (posición y ángulo coinciden con el objetivo).
-	// Esto evita se marquen las lineas como visibles en el automapa cuando están fuera del nodo del BSP, 
+	// Verifica si el jugador ha llegado completamente a su destino (posiciï¿½n y ï¿½ngulo coinciden con el objetivo).
+	// Esto evita se marquen las lineas como visibles en el automapa cuando estï¿½n fuera del nodo del BSP, 
 	// ya que en algunas ocasiones se renderizan secciones del mapa sin que el jugador realmente se encuentre en ese nodo.
 	//
 	// Checks if the player has completely reached their destination (position and angle match the target).  
@@ -1365,8 +1364,8 @@ void Render::addSprite(short n) {
 	}
 
 	// [GEC]
-	// Verifica si el jugador ha llegado completamente a su destino (posición y ángulo coinciden con el objetivo).
-	// Esto evita se marquen cosas como visibles en el automapa cuando están fuera del nodo del BSP, 
+	// Verifica si el jugador ha llegado completamente a su destino (posiciï¿½n y ï¿½ngulo coinciden con el objetivo).
+	// Esto evita se marquen cosas como visibles en el automapa cuando estï¿½n fuera del nodo del BSP, 
 	// ya que en algunas ocasiones se renderizan secciones del mapa sin que el jugador realmente se encuentre en ese nodo.
 	//
 	// Checks if the player has completely reached their destination (position and angle match the target).  
@@ -2108,8 +2107,8 @@ void Render::renderSpriteObject(int n) {
 
 		if (monster != nullptr) {
 			// [GEC]
-			// Verifica si el jugador ha llegado completamente a su destino (posición y ángulo coinciden con el objetivo).
-			// Esto evita que los enemigos se activen cuando están fuera del nodo del BSP, ya que en algunas ocasiones 
+			// Verifica si el jugador ha llegado completamente a su destino (posiciï¿½n y ï¿½ngulo coinciden con el objetivo).
+			// Esto evita que los enemigos se activen cuando estï¿½n fuera del nodo del BSP, ya que en algunas ocasiones 
 			// se renderizan secciones del mapa sin que el jugador realmente se encuentre en ese nodo.
 			// 
 			// Checks if the player has completely reached their destination (position and angle match the target).
@@ -3301,7 +3300,7 @@ void Render::renderSpriteAnim(int n, int frame, int x, int y, int z, int tileNum
 	bool hasHead = entity->hasHead();
 	bool b = entity->def->eType == Enums::ET_MONSTER && entity->def->eSubType == Enums::BOSS_SPY && (entity->info & Entity::ENTITY_FLAG_DROPPED) != 0x0; // ENTITY_FLAG_HASFOUGHT
 
-	bool isTorsoInFront = false; // Determina si el torso está frente a la cabeza
+	bool isTorsoInFront = false; // Determina si el torso estï¿½ frente a la cabeza
 	switch (monsterAnim) {
 	case Enums::MANIM_IDLE_BACK: {
 		n12 = Enums::MFRAME_BACK_LEGS1;
@@ -3923,7 +3922,9 @@ static void DrawBitmap(short* buffer, int buffW, int buffH, int x, int y, int w,
 	glDisable(GL_ALPHA_TEST);
 	glDisable(GL_BLEND);
 	glEnable(GL_TEXTURE_2D);
-	glActiveTexture(GL_TEXTURE0);
+	if (glActiveTexture != nullptr) {
+		glActiveTexture(GL_TEXTURE0);
+	}
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);

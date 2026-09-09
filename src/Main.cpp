@@ -21,10 +21,15 @@
 #include "Utils.h"
 #include "TinyGL.h"
 #include "Input.h"
+#include "PspLog.h"
 
 void drawView(SDLGL* sdlGL);
 
 int main(int argc, char* args[]) {
+    PspLog::open();
+    PspLog::stage("main");
+
+    try {
     int		UpTime = 0;
 
     if (UpTime == 0) {
@@ -32,16 +37,25 @@ int main(int argc, char* args[]) {
     }
     
     ZipFile zipFile;
-    zipFile.openZipFile("Wolfenstein RPG.ipa");
+    // The PSP EBOOT runs with its containing directory as the working directory.
+    PspLog::stage("open archive");
+    zipFile.openZipFile("./Wolfenstein RPG.ipa");
 
 	SDLGL sdlGL;
-	sdlGL.Initialize();
+	PspLog::stage("initialize SDL and video");
+	if (!sdlGL.Initialize()) {
+        PspLog::write("SDL initialization failed: %s\n", SDL_GetError());
+        return 1;
+    }
 
     Input input;
+    PspLog::stage("initialize input");
     input.init(); // [GEC] Port: set default Binds
 
+    PspLog::stage("construct applet");
     CAppContainer::getInstance()->Construct(&sdlGL, &zipFile);
     sdlGL.updateVideo(); // [GEC]
+    PspLog::stage("enter main loop");
 
     while (CAppContainer::getInstance()->app->closeApplet != true) {
         int currentTimeMillis = CAppContainer::getInstance()->getTimeMS();
@@ -58,13 +72,28 @@ int main(int argc, char* args[]) {
     zipFile.closeZipFile();
     sdlGL.~SDLGL();
     input.~Input();
+	PspLog::stage("shutdown");
+    PspLog::close();
 	return 0;
+    } catch (const std::exception& exception) {
+        PspLog::write("FATAL std::exception: %s\n", exception.what());
+        PspLog::close();
+        return 1;
+    } catch (...) {
+        PspLog::write("FATAL unknown exception\n");
+        PspLog::close();
+        return 1;
+    }
 }
 
 
 static uint32_t lastTimems = 0;
 
 void drawView(SDLGL *sdlGL) {
+    static int frameCount = 0;
+    if (frameCount < 12) {
+        PspLog::write("frame %d begin\n", frameCount);
+    }
 
     int cx, cy;
     int w = sdlGL->vidWidth;
@@ -103,7 +132,14 @@ void drawView(SDLGL *sdlGL) {
     //printf("passedTime %d\n", passedTime);
 
     CAppContainer::getInstance()->DoLoop(passedTime);
+    if (frameCount < 12) {
+        PspLog::write("frame %d loop complete\n", frameCount);
+    }
 
     SDL_GL_SwapWindow(sdlGL->window);  // Swap the window/pBmp to display the result.
+    if (frameCount < 12) {
+        PspLog::write("frame %d swap complete\n", frameCount);
+    }
+    frameCount++;
     
 }

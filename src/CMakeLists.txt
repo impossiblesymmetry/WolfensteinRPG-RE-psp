@@ -22,10 +22,22 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "Resources Files" FILES ${R
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${RESOURCES_FILES})
 
 # Enlace de bibliotecas
-target_link_libraries(${PROJECT_NAME} SDL2::SDL2 ZLIB::ZLIB OpenGL::GL ${HASH_LIBRARY_TGT_NAME})
+target_link_libraries(${PROJECT_NAME} SDL2::SDL2 ZLIB::ZLIB ${HASH_LIBRARY_TGT_NAME})
 
-# Enlace de OpenAL según el sistema operativo
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(PSP)
+    find_package(SDL2_mixer REQUIRED)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WOLFENSTEIN_PSP=1)
+    target_compile_options(${PROJECT_NAME} PRIVATE -include cstdint -Wno-narrowing -fpermissive)
+    target_link_libraries(${PROJECT_NAME} SDL2::mixer
+        GL openal modplug vorbisfile vorbis ogg pspvram pspaudiolib pspaudio pspvfpu
+        pspdisplay pspgu pspge psphprm pspctrl psppower stdc++ m)
+    create_pbp_file(
+        TARGET ${PROJECT_NAME}
+        TITLE "Wolfenstein RPG"
+        ICON_PATH "${PROJECT_SOURCE_DIR}/assets/psp/ICON0-user.png"
+        BACKGROUND_PATH "${PROJECT_SOURCE_DIR}/assets/psp/PIC1-user.PNG"
+        PREVIEW_PATH NULL)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(${PROJECT_NAME} OpenAL::OpenAL ${OPENGL_gl_LIBRARY})
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(${PROJECT_NAME} OpenGL::GL ${OPENAL_LIBRARY})

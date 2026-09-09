@@ -25,6 +25,7 @@
 #include "Input.h"
 #include "GLES.h"
 #include "Render.h"
+#include "PspLog.h"
 
 constexpr int Game::dropDirs[];
 
@@ -2116,7 +2117,6 @@ void Game::saveConfig() {
 	else {
 		app->Error("I/O Error in saveConfig"); // ERR_SAVECONFIG
 	}
-	OS.~OutputStream();
 }
 
 void Game::loadConfig() {
@@ -2126,6 +2126,7 @@ void Game::loadConfig() {
 	const char* name = this->GetSaveFile(Game::FILE_NAME_CONFIG, 0);
 
 	if (IS.loadFile(name, LT_FILE)) {
+		PspLog::write("loadConfig file size: %d bytes\n", IS.fileSize);
 		if (IS.readInt() == 29) {
 			this->difficulty = IS.readByte();
 			app->sound->allowSounds = IS.readBoolean();
@@ -2189,8 +2190,12 @@ void Game::loadConfig() {
 
 			SDL_memcpy(keyMappingTemp, keyMapping, sizeof(keyMapping));
 
-			if (IS.readInt() != 0xDEADBEEF) {
-				app->Error("Failed marker check in loadConfig()");
+			int marker = IS.readInt();
+			PspLog::write("loadConfig marker: 0x%08x at cursor %d\n", marker, IS.cursor);
+			if (marker != 0xDEADBEEF) {
+				PspLog::write("invalid config marker; ignoring config file\n");
+				IS.close();
+				return;
 			}
 			IS.close();
 			app->sound->updateVolume();
@@ -2199,7 +2204,6 @@ void Game::loadConfig() {
 			IS.close();
 		}
 	}
-	IS.~InputStream();
 }
 
 void Game::saveState(int lastMapID, int loadMapID, int viewX, int viewY, int viewAngle, int viewPitch, int prevX, int prevY, int saveX, int saveY, int saveZ, int saveAngle, int savePitch, int saveType) {
@@ -2225,7 +2229,6 @@ void Game::saveState(int lastMapID, int loadMapID, int viewX, int viewY, int vie
 
 		if (OS.openFile(name, 1)) {
 			if (!this->savePlayerState(&OS, loadMapID, viewX, viewY, viewAngle, viewPitch, prevX, prevY)) {
-				OS.~OutputStream();
 				OS.close();
 				return;
 			}
@@ -2255,7 +2258,6 @@ void Game::saveState(int lastMapID, int loadMapID, int viewX, int viewY, int vie
 
 	app->canvas->loadRuntimeData();
 
-	OS.~OutputStream();
 }
 
 void Game::saveLevelSnapshot() {
@@ -2286,7 +2288,6 @@ void Game::saveLevelSnapshot() {
 			}
 		}
 	}
-	OS.~OutputStream();
 }
 
 bool Game::savePlayerState(OutputStream* OS, int loadMapID, int viewX, int viewY, int viewAngle, int viewPitch, int prevX, int prevY) {
@@ -2344,7 +2345,6 @@ bool Game::loadState(int activeLoadType) {
 		app->Error("loadState: failed to open player file");
 	}
 
-	IS.~InputStream();
 	return rtn;
 }
 
@@ -2356,7 +2356,6 @@ bool Game::hasConfig() {
 			return true;
 		}
 	}
-	IS.~InputStream();
 	return false;
 }
 
@@ -2485,6 +2484,15 @@ void Game::saveEmptyConfig() {
 		OS.writeInt(sdlGL->windowMode);
 		OS.writeBoolean(sdlGL->vSync);
 		OS.writeInt(sdlGL->resolutionIndex);
+		OS.writeInt(gVibrationIntensity);
+		OS.writeInt(gDeadZone);
+		OS.writeBoolean(_glesObj->isInit);
+
+		for (int i = 0; i < KEY_MAPPIN_MAX; i++) {
+			for (int j = 0; j < KEYBINDS_MAX; j++) {
+				OS.writeInt(keyMapping[i].keyBinds[j]);
+			}
+		}
 
 		OS.writeInt(0xDEADBEEF);
 		OS.close();
@@ -2492,7 +2500,6 @@ void Game::saveEmptyConfig() {
 	else {
 		app->Error("I/O Error in saveConfig");
 	}
-	OS.~OutputStream();
 }
 
 bool Game::canSnapMonsters() {

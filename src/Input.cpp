@@ -16,6 +16,10 @@
 #include <cmath>
 #include <vector>
 
+#ifdef WOLFENSTEIN_PSP
+#include <pspctrl.h>
+#endif
+
 char buttonNames[][NUM_GAMEPAD_INPUTS] = {
     "Gamepad A",
     "Gamepad B",
@@ -685,7 +689,7 @@ void Input::unBind(int* keyBinds, int index)
 void Input::setBind(int* keyBinds, int keycode) {
     int i;
 
-    // Examina si existe anteriormente, si es así, se desvinculará de la lista
+    // Examina si existe anteriormente, si es asï¿½, se desvincularï¿½ de la lista
     // Examines whether it exists previously, if so, it will be unbind from the list
     for (i = 0; i < KEYBINDS_MAX; i++) {
         if (keyBinds[i] == keycode) {
@@ -721,6 +725,47 @@ void Input::handleEvents() noexcept {
     Uint8 state;
     int mX, mY;           /* mouse location*/
     int i, j;
+
+#ifdef WOLFENSTEIN_PSP
+    static unsigned int previousButtons = 0;
+    static bool previousAnalogLeft = false;
+    static bool previousAnalogRight = false;
+    static bool previousAnalogUp = false;
+    static bool previousAnalogDown = false;
+    SceCtrlData controller;
+    sceCtrlReadBufferPositive(&controller, 1);
+    const unsigned int pressed = controller.Buttons;
+    const unsigned int changed = pressed & ~previousButtons;
+    const auto press = [canvas](unsigned int button, int action) {
+        if (button != 0) {
+            canvas->keyPressed(action);
+        }
+    };
+    press(changed & PSP_CTRL_UP, AVK_UP);
+    press(changed & PSP_CTRL_DOWN, AVK_DOWN);
+    press(changed & PSP_CTRL_LEFT, AVK_LEFT);
+    press(changed & PSP_CTRL_RIGHT, AVK_RIGHT);
+    press(changed & PSP_CTRL_CROSS, AVK_SELECT | AVK_MENU_SELECT);
+    press(changed & PSP_CTRL_SQUARE, AVK_PASSTURN);
+    press(changed & PSP_CTRL_TRIANGLE, AVK_AUTOMAP);
+    press(changed & PSP_CTRL_CIRCLE, AVK_MENUOPEN | AVK_MENU_OPEN);
+    press(changed & PSP_CTRL_START, AVK_MENUOPEN | AVK_MENU_OPEN);
+    press(changed & PSP_CTRL_LTRIGGER, AVK_PREVWEAPON);
+    press(changed & PSP_CTRL_RTRIGGER, AVK_NEXTWEAPON);
+    const bool analogLeft = controller.Lx < 96;
+    const bool analogRight = controller.Lx > 160;
+    const bool analogUp = controller.Ly < 96;
+    const bool analogDown = controller.Ly > 160;
+    if (analogLeft && !previousAnalogLeft) press(1, AVK_MOVELEFT);
+    if (analogRight && !previousAnalogRight) press(1, AVK_MOVERIGHT);
+    if (analogUp && !previousAnalogUp) press(1, AVK_UP);
+    if (analogDown && !previousAnalogDown) press(1, AVK_DOWN);
+    previousAnalogLeft = analogLeft;
+    previousAnalogRight = analogRight;
+    previousAnalogUp = analogUp;
+    previousAnalogDown = analogDown;
+    previousButtons = pressed;
+#endif
 
     while (SDL_PollEvent(&sdlEvent) != 0) {
         switch (sdlEvent.type) {

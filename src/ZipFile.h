@@ -36,6 +36,7 @@ public:
 	void openZipFile(const char* name);
 	void closeZipFile();
 	uint8_t* readZipFileEntry(const char* name, int* sizep);
+	bool extractZipFileEntry(const char* name, const char* outputPath);
 };
 
 #endif

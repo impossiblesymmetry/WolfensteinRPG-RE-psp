@@ -8,6 +8,10 @@
 #include <AL/alc.h>
 #endif
 
+#ifdef WOLFENSTEIN_PSP
+#include <SDL_mixer.h>
+#endif
+
 typedef uint32_t AudioFormatID;
 typedef uint32_t AudioFormatFlags;
 typedef uint32_t AudioFileID;
@@ -80,6 +84,11 @@ public:
 	bool soundsLoaded;
 	ALCcontext* alContext;
 	ALCdevice* alDevice;
+#ifdef WOLFENSTEIN_PSP
+	Mix_Music* music;
+	int musicResID;
+	char musicPath[128];
+#endif
 
 	// Constructor
 	Sound();
@@ -121,6 +130,12 @@ public:
 	void updateFades();
 	void musicVolumeUp(int volume); // [GEC]
 	void musicVolumeDown(int volume); // [GEC]
+
+#ifdef WOLFENSTEIN_PSP
+	bool isMusicResource(int resID) const;
+	bool playMusic(int resID, uint8_t flags);
+	void stopMusic();
+#endif
 };
 
 #endif

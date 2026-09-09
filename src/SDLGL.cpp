@@ -3,6 +3,12 @@
 
 #include "SDLGL.h"
 #include "App.h"
+#include "PspLog.h"
+
+#ifdef WOLFENSTEIN_PSP
+#include <pspctrl.h>
+#include <psppower.h>
+#endif
 
 
 SDLResVidModes sdlResVideoModes[18] = {
@@ -62,17 +68,28 @@ bool SDLGL::Initialize() {
 		SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
 		if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
 			printf("Could not initialize SDL: %s", SDL_GetError());
+			PspLog::write("SDL_Init failed: %s\n", SDL_GetError());
+			return false;
 		}
 
 		flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN /* | SDL_WINDOW_RESIZABLE*/;
+	#ifdef WOLFENSTEIN_PSP
+		scePowerSetClockFrequency(333, 333, 166);
+		this->winVidWidth = 480;
+		this->winVidHeight = 272;
+		flags |= SDL_WINDOW_FULLSCREEN;
+	#else
 		// Set the highdpi flags - this makes a big difference on Macs with
 		// retina displays, especially when using small window sizes.
 		flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+	#endif
 
 		this->oldResolutionIndex = -1;
 		this->resolutionIndex = 0;
+	#ifndef WOLFENSTEIN_PSP
 		this->winVidWidth = sdlResVideoModes[this->resolutionIndex].width;//Applet::IOS_WIDTH*2;
 		this->winVidHeight = sdlResVideoModes[this->resolutionIndex].height;//Applet::IOS_HEIGHT*2;
+	#endif
 
 		//this->winVidWidth = 1440;
 		//this->winVidHeight = 900;
@@ -85,6 +102,8 @@ bool SDLGL::Initialize() {
 		this->window = SDL_CreateWindow("Wolfenstein RPG By [GEC] Version 0.1", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, winVidWidth, winVidHeight, flags);
 		if (!this->window) {
 			printf("Could not set %dx%d video mode: %s", winVidWidth, winVidHeight, SDL_GetError());
+			PspLog::write("SDL_CreateWindow failed: %s\n", SDL_GetError());
+			return false;
 		}
 
 		this->vidWidth = Applet::IOS_WIDTH;
@@ -93,6 +112,10 @@ bool SDLGL::Initialize() {
 		this->windowMode = 0;
 		this->oldVSync = false;
 		this->vSync = true;
+	#ifdef WOLFENSTEIN_PSP
+		sceCtrlSetSamplingCycle(0);
+		sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+	#endif
 
 		//SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
 		//SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
@@ -107,6 +130,10 @@ bool SDLGL::Initialize() {
 #endif
 
 		this->glcontext = SDL_GL_CreateContext(window);
+		if (!this->glcontext) {
+			PspLog::write("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+			return false;
+		}
 
 		// now you can make GL calls.
 		glClearColor(0, 0, 0, 1);
@@ -213,9 +240,13 @@ void SDLGL::updateVideo() {
 	}
 
 	if (this->resolutionIndex != this->oldResolutionIndex) {
+	#ifndef WOLFENSTEIN_PSP
 		SDL_SetWindowSize(this->window, sdlResVideoModes[this->resolutionIndex].width, sdlResVideoModes[this->resolutionIndex].height);
 		SDL_SetWindowPosition(this->window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 		this->updateWinVid(sdlResVideoModes[this->resolutionIndex].width, sdlResVideoModes[this->resolutionIndex].height);
+	#else
+		this->updateWinVid(480, 272);
+	#endif
 		this->oldResolutionIndex = this->resolutionIndex;
 	}
 

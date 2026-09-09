@@ -457,7 +457,7 @@ int Player::calcScore() {
         for (int i5 = 0; i5 < 2; i5++) {
             int i6 = this->medals[i5];
             for (int i7 = 0; i7 < 32; i7++) {
-                // if ((i6 & 1 << i7) == 1)  // <- [Original Code] A bug? It only verifies one medal per field. / ¿Un error? Solo verifica una medalla por campo.
+                // if ((i6 & 1 << i7) == 1)  // <- [Original Code] A bug? It only verifies one medal per field. / ï¿½Un error? Solo verifica una medalla por campo.
                 if ((i6 & 1 << i7) != 0x0) { // <- [GEC] Allows you to verify all the medals collected. / Permite verificar todas las medallas colectadas.
                     n += 100;
                 }
@@ -989,7 +989,7 @@ bool Player::give(int n, int n2, int n3, bool b) {
         b2 = this->ce->weapon != Enums::WP_MOUNTED_GUN_TURRET && ((this->weapons & ((int64_t)i4)) == 0);
         if (Entity::CheckWeaponMask(n2, Enums::WP_PUNCH_MASK)) {
             int32_t weap_masks = app->combat->weaponMasks[(2 * Enums::WP_PUNCH_MASK) + 0];
-            i4 = std::max(i4, ((int32_t)this->weapons & weap_masks));
+            i4 = std::max(i4, (int)(((int32_t)this->weapons) & weap_masks));
             this->weapons &= (int64_t)(~weap_masks);
         }
         if (n3 < 0) {
@@ -1002,7 +1002,7 @@ bool Player::give(int n, int n2, int n3, bool b) {
         }
         if (Entity::CheckWeaponMask(n2, Enums::WP_SNIPERMASK)) {
             int32_t weap_masks = app->combat->weaponMasks[(2 * Enums::WP_SNIPERMASK) + 0];
-            i4 = std::max(i4, ((int32_t)this->weapons & weap_masks));
+            i4 = std::max(i4, (int)(((int32_t)this->weapons) & weap_masks));
             this->weapons &= (int64_t)(~weap_masks);
         }
         this->weapons |= (int64_t)i4;

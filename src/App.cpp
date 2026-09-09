@@ -26,6 +26,7 @@
 #include "JavaStream.h"
 #include "Image.h"
 #include "Graphics.h"
+#include "PspLog.h"
 
 constexpr int Applet::FONT_HEIGHT[];
 constexpr int Applet::FONT_WIDTH[];
@@ -44,6 +45,7 @@ Applet::~Applet() {
 
 bool Applet::startup() {
 	printf("Applet::startup\n");
+	PspLog::stage("applet startup");
 
 	this->closeApplet = false;
 	this->fontType = 0;
@@ -69,7 +71,12 @@ bool Applet::startup() {
 
 	this->backBuffer = new IDIB;
 	this->backBuffer->pBmp =  new uint8_t[480 * 320 *2];
+	if (this->backBuffer->pBmp == nullptr) {
+		PspLog::write("FATAL: back buffer allocation failed (%d bytes)\n", 480 * 320 * 2);
+		return false;
+	}
 	memset(this->backBuffer->pBmp, 0, 480 * 320 * 2);
+	PspLog::stage("back buffer allocated");
 	this->backBuffer->pRGB888 = nullptr;
 	this->backBuffer->pRGB565 = nullptr;
 	this->backBuffer->width = CAppContainer::getInstance()->sdlGL->vidWidth;
@@ -98,6 +105,7 @@ bool Applet::startup() {
 	this->particleSystem = new ParticleSystem;
 	this->cardGames = new CardGames;
 	this->drivingGame = new DrivingGame;
+	PspLog::stage("startup objects allocated");
 
 	Applet::loadConfig();
 	//this->moreGames = getStartupVarBool("More_Games", false);
@@ -106,21 +114,34 @@ bool Applet::startup() {
 	this->gameTime = this->upTimeMs;
 	this->startupMemory = Applet::MAXMEMORY;
 
+	PspLog::stage("open tables resource");
 	this->resource->initTableLoading();
+	PspLog::stage("load tables");
 	this->loadTables();
 
+	PspLog::stage("startup canvas");
 	if (this->canvas->startup()) {
 		//this->testImg = Applet::loadImage("cockpit.bmp", true);
 		//this->canvas->loadMiniGameImages();
+		PspLog::stage("startup localization");
 		if (this->localization->startup()) {
+			PspLog::stage("startup render");
 			if (this->render->startup()) {
+				PspLog::stage("startup TinyGL");
 				if (this->tinyGL->startup(this->render->screenWidth, this->render->screenHeight)) {
+					PspLog::stage("startup entities");
 					if (this->entityDefManager->startup()) {
+						PspLog::stage("startup player");
 						if (this->player->startup()) {
+							PspLog::stage("startup menus");
 							if (this->menuSystem->startup()) {
+								PspLog::stage("startup sound");
 								if (this->sound->startup()) {
+									PspLog::stage("startup game");
 									if (this->game->startup()) {
+										PspLog::stage("startup particles");
 										if (this->particleSystem->startup()) {
+											PspLog::stage("startup combat");
 											if (this->combat->startup()) {
 
 												this->game->loadConfig();
@@ -157,6 +178,7 @@ bool Applet::startup() {
 			}
 		}
 	}
+	PspLog::write("Applet startup failed after the last reported stage\n");
 	printf("error faltal:\n");
 	return false;
 }
@@ -336,7 +358,6 @@ Image* Applet::loadImage(char* fileName, bool isTransparentMask) {
 	img = this->createImage(&iStream, isTransparentMask);
 
 	iStream.close();
-	iStream.~InputStream();
 	return img;
 }
 

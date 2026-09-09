@@ -15,6 +15,11 @@
 #include "Sound.h"
 #include "Sounds.h"
 #include "JavaStream.h"
+#include "PspLog.h"
+#ifdef WOLFENSTEIN_PSP
+#include "ZipFile.h"
+#include <cstdio>
+#endif
 
 constexpr char* Sounds::RESOURCE_FILE_NAMES[];
 
@@ -64,12 +69,23 @@ bool Sound::startup() {
 		this->channel[i].priority = 1;
 	}
 	this->openAL_Init();
+#ifdef WOLFENSTEIN_PSP
+	this->music = nullptr;
+	this->musicResID = -1;
+	strcpy(this->musicPath, "/PSP/SAVEDATA/WOLFRPG01/WolfensteinRPG.music.wav");
+	if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 2048) < 0) {
+		PspLog::write("SDL_mixer init failed: %s\n", Mix_GetError());
+		return false;
+	}
+	Mix_VolumeMusic((this->musicVolume * MIX_MAX_VOLUME) / 100);
+#endif
 
 	return true;
 }
 
 void Sound::openAL_Init() {
 	ALenum error;
+	PspLog::stage("OpenAL init");
 	//printf("Sound::openAL_Init\n");
 
 	alGetError();
@@ -99,9 +115,14 @@ void Sound::openAL_Init() {
 		alListener3i(AL_VELOCITY, 0, 0, 0);
 		OpenAL_ERROR(546);
 	}
+	PspLog::stage("OpenAL init complete");
 }
 
 void Sound::openAL_Close() {
+#ifdef WOLFENSTEIN_PSP
+	this->stopMusic();
+	Mix_CloseAudio();
+#endif
 	for (int i = 0; i < 10; i++) {
 		alDeleteBuffers(1, &this->channel[i].bufferId);
 		alDeleteSources(1, &this->channel[i].sourceId);
@@ -290,7 +311,6 @@ bool Sound::openAL_LoadAudioFileData(const char* fileName, ALenum* format, ALvoi
 		}
 
 		IS.close();
-		IS.~InputStream();
 
 		if (!this->openAL_GetALFormat(outPropertyData, format)) {
 			this->app->Error("openAL: Error formatting");
@@ -299,7 +319,6 @@ bool Sound::openAL_LoadAudioFileData(const char* fileName, ALenum* format, ALvoi
 		*freq = (int)outPropertyData.mSampleRate;
 		return true;
 	}
-	IS.~InputStream();
 	return false;
 }
 
@@ -315,6 +334,7 @@ bool Sound::openAL_OpenAudioFile(const char* fileName, InputStream* IS) {
 bool Sound::openAL_LoadAllSounds() {
 	ALenum error;
 	if (this->soundsLoaded == false) {
+		PspLog::stage("OpenAL create sources");
 		for (int i = 0; i < 10; i++) {
 			alGenBuffers(1, &this->channel[i].bufferId);
 			alGenSources(1, &this->channel[i].sourceId);
@@ -323,6 +343,7 @@ bool Sound::openAL_LoadAllSounds() {
 		}
 		OpenAL_ERROR(643);
 		this->soundsLoaded = true;
+		PspLog::stage("OpenAL sources created");
 		return true;
 	}
 
@@ -340,6 +361,14 @@ bool Sound::cacheSounds() {
 
 void Sound::playSound(int16_t resID, uint8_t flags, int priority, bool a5) {
 	ALenum error;
+#ifdef WOLFENSTEIN_PSP
+	if (this->isMusicResource(resID)) {
+		if (this->allowMusics) {
+			this->playMusic(resID, flags);
+		}
+		return;
+	}
+#endif
 
 	int v5; // r5
 	bool v7; // zf
@@ -516,6 +545,9 @@ int Sound::getFreeSlot(int a2) {
 }
 
 void Sound::soundStop() {
+#ifdef WOLFENSTEIN_PSP
+	this->stopMusic();
+#endif
 	for (int i = 0; i < 10; i++) {
 		alSourceStop(this->channel[i].sourceId);
 		this->channel[i].priority = 1;
@@ -524,6 +556,12 @@ void Sound::soundStop() {
 }
 
 void Sound::stopSound(int resID, bool fadeOut) {
+	#ifdef WOLFENSTEIN_PSP
+	if (this->isMusicResource(resID)) {
+		this->stopMusic();
+		return;
+	}
+	#endif
 	int volume;
 	for (int i = 0; i < 10; i++) {
 		if (this->channel[i].resID == resID) {
@@ -579,6 +617,12 @@ void Sound::updateVolume() {
 		this->allowMusics = (this->musicVolume != 0) ? true : false;
 		this->allowSounds = (this->soundFxVolume != 0) ? true : false;
 	}
+#ifdef WOLFENSTEIN_PSP
+	Mix_VolumeMusic((this->musicVolume * MIX_MAX_VOLUME) / 100);
+	if (this->musicVolume == 0) {
+		this->stopMusic();
+	}
+#endif
 }
 
 void Sound::playCombatSound(int16_t resID, uint8_t flags, int priority) {
@@ -697,3 +741,47 @@ void Sound::musicVolumeDown(int volume) { // [GEC]
 	}
 	this->updateVolume();
 }
+
+#ifdef WOLFENSTEIN_PSP
+bool Sound::isMusicResource(int resID) const {
+	return (resID >= 1070 && resID <= 1079) || resID == 1155;
+}
+
+void Sound::stopMusic() {
+	if (this->music != nullptr) {
+		Mix_HaltMusic();
+		Mix_FreeMusic(this->music);
+		this->music = nullptr;
+	}
+	this->musicResID = -1;
+	remove(this->musicPath);
+}
+
+bool Sound::playMusic(int resID, uint8_t flags) {
+	if (this->musicResID == resID && this->music != nullptr) {
+		return true;
+	}
+	this->stopMusic();
+	int index = resID == 1155 ? 155 : resID - 1000;
+	char archiveName[256];
+	snprintf(archiveName, sizeof(archiveName),
+		"Payload/Wolf...RPG.app/Packages/sounds/%s", Sounds::RESOURCE_FILE_NAMES[index]);
+	if (!CAppContainer::getInstance()->zipFile->extractZipFileEntry(archiveName, this->musicPath)) {
+		PspLog::write("music extraction failed for resource %d\n", resID);
+		return false;
+	}
+	this->music = Mix_LoadMUS(this->musicPath);
+	if (this->music == nullptr) {
+		PspLog::write("music load failed for %s: %s\n", this->musicPath, Mix_GetError());
+		remove(this->musicPath);
+		return false;
+	}
+	this->musicResID = resID;
+	if (Mix_PlayMusic(this->music, (flags & 1) ? -1 : 0) < 0) {
+		PspLog::write("music playback failed: %s\n", Mix_GetError());
+		this->stopMusic();
+		return false;
+	}
+	return true;
+}
+#endif

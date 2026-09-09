@@ -6,6 +6,7 @@
 #include "CAppContainer.h"
 #include "App.h"
 #include "ZipFile.h"
+#include "PspLog.h"
 
 // ------------------
 // InputStream Class
@@ -40,7 +41,9 @@ bool InputStream::loadResource(const char* fileName)
 
 bool InputStream::loadFile(const char* fileName, int loadType) {
 	char namePath[2048];
+	this->close();
 	this->cursor = 0;
+	this->fileSize = 0;
 
 	if (loadType == LT_RESOURCE) {
 		strncpy(namePath, "Payload/Wolf...RPG.app/Packages/", sizeof(namePath));
@@ -49,6 +52,7 @@ bool InputStream::loadFile(const char* fileName, int loadType) {
 
 		this->data = CAppContainer::getInstance()->zipFile->readZipFileEntry(namePath, &this->fileSize);
 		if (this->data) {
+			PspLog::write("loaded resource %s (%d bytes)\n", namePath, this->fileSize);
 			return true;
 		}
 	}
@@ -106,6 +110,12 @@ void InputStream::close() {
 		fclose(this->file);
 		this->file = nullptr;
 	}
+	if (this->data) {
+		free(this->data);
+		this->data = nullptr;
+	}
+	this->cursor = 0;
+	this->fileSize = 0;
 }
 
 int InputStream::readInt()
@@ -201,13 +211,14 @@ int OutputStream::openFile(const char* fileName, int openMode) {
 
 	struct stat sb;
 	if (stat(dir, &sb)) {
-		char command[128];
-		strcpy(command, "mkdir ");
-		strcat(command, "\"");
-		strcat(command, dir);
-		strcat(command, "\"");
-		//printf("command %s\n", command);
-		system(command);
+		#ifdef WOLFENSTEIN_PSP
+		mkdir("/PSP", 0777);
+		mkdir("/PSP/SAVEDATA", 0777);
+		#endif
+		if (mkdir(dir, 0777) != 0 && stat(dir, &sb) != 0) {
+			PspLog::write("cannot create save directory: %s\n", dir);
+			return 0;
+		}
 	}
 
 	strcpy(namePath, dir);
@@ -250,6 +261,7 @@ int OutputStream::openFile(const char* fileName, int openMode) {
 		this->writeBuff = (uint8_t*)malloc(this->fileSize);
 		return 1;
 	}
+	PspLog::write("save file open failed: %s\n", namePath);
 
 	return 0;
 }

@@ -5,6 +5,7 @@
 
 #include "ZipFile.h"
 #include "SDLGL.h"
+#include "PspLog.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -18,6 +19,7 @@ void Error(const char* fmt, ...)
 	va_end(ap);
 
 	printf("%s", errMsg);
+	PspLog::write("ZIP error: %s\n", errMsg);
 
 	const SDL_MessageBoxButtonData buttons[] = {
 		{ /* .flags, .buttonid, .text */        0, 0, "Ok" },
@@ -241,8 +243,19 @@ uint8_t* ZipFile::readZipFileEntry(const char* name, int* sizep) {
 
 	fseek(this->file, namelength + extralength, SEEK_CUR);
 
+	PspLog::write("zip entry %s: method=%d compressed=%d uncompressed=%d\n",
+		name, method, entry->csize, entry->usize);
 	cdata = (uint8_t*) malloc(entry->csize);
+	if (cdata == nullptr) {
+		PspLog::write("zip allocation failed for compressed data (%d bytes)\n", entry->csize);
+		return nullptr;
+	}
 	fread(cdata, sizeof(uint8_t), entry->csize, this->file);
+	if (ferror(this->file)) {
+		PspLog::write("zip read failed for %s\n", name);
+		free(cdata);
+		return nullptr;
+	}
 
 	if (method == 0)
 	{
@@ -252,6 +265,11 @@ uint8_t* ZipFile::readZipFileEntry(const char* name, int* sizep) {
 	else if (method == 8)
 	{
 		uint8_t* udata = (uint8_t*) malloc(entry->usize);
+		if (udata == nullptr) {
+			PspLog::write("zip allocation failed for uncompressed data (%d bytes)\n", entry->usize);
+			free(cdata);
+			return nullptr;
+		}
 		z_stream stream;
 
 		memset(&stream, 0, sizeof stream);
@@ -290,4 +308,110 @@ uint8_t* ZipFile::readZipFileEntry(const char* name, int* sizep) {
 	}
 
 	return nullptr;
+}
+
+bool ZipFile::extractZipFileEntry(const char* name, const char* outputPath) {
+	zip_entry_t* entry = nullptr;
+	for (int i = 0; i < this->entry_count; i++) {
+		if (!SDL_strcasecmp(name, this->entry[i].name)) {
+			entry = this->entry + i;
+			break;
+		}
+	}
+	if (entry == nullptr) {
+		PspLog::write("zip entry not found: %s\n", name);
+		return false;
+	}
+
+	fseek(this->file, entry->offset, SEEK_SET);
+	if (_ReadInt(this->file) != ZIP_LOCAL_FILE_SIG) {
+		PspLog::write("wrong zip local file signature for %s\n", name);
+		return false;
+	}
+	_ReadShort(this->file);
+	int general = _ReadShort(this->file);
+	if (general & ZIP_ENCRYPTED_FLAG) {
+		PspLog::write("encrypted zip entry: %s\n", name);
+		return false;
+	}
+	int method = _ReadShort(this->file);
+	_ReadShort(this->file);
+	_ReadShort(this->file);
+	_ReadInt(this->file);
+	_ReadInt(this->file);
+	_ReadInt(this->file);
+	int nameLength = _ReadShort(this->file);
+	int extraLength = _ReadShort(this->file);
+	fseek(this->file, nameLength + extraLength, SEEK_CUR);
+
+	FILE* output = fopen(outputPath, "wb");
+	if (output == nullptr) {
+		PspLog::write("cannot create extracted music: %s\n", outputPath);
+		return false;
+	}
+
+	bool success = true;
+	if (method == 0) {
+		uint8_t buffer[4096];
+		int remaining = entry->csize;
+		while (remaining > 0 && success) {
+			int count = MIN(remaining, (int)sizeof(buffer));
+			if ((int)fread(buffer, 1, count, this->file) != count ||
+				(int)fwrite(buffer, 1, count, output) != count) {
+				success = false;
+			}
+			remaining -= count;
+		}
+	}
+	else if (method == 8) {
+		z_stream stream;
+		memset(&stream, 0, sizeof(stream));
+		stream.zalloc = zip_alloc;
+		stream.zfree = zip_free;
+		if (inflateInit2(&stream, -15) != Z_OK) {
+			success = false;
+		}
+		uint8_t input[4096];
+		uint8_t outputBuffer[4096];
+		int remaining = entry->csize;
+		while (success && (remaining > 0 || stream.avail_in > 0)) {
+			if (stream.avail_in == 0 && remaining > 0) {
+				int count = MIN(remaining, (int)sizeof(input));
+				if ((int)fread(input, 1, count, this->file) != count) {
+					success = false;
+					break;
+				}
+				stream.next_in = input;
+				stream.avail_in = count;
+				remaining -= count;
+			}
+			stream.next_out = outputBuffer;
+			stream.avail_out = sizeof(outputBuffer);
+			int code = inflate(&stream, remaining == 0 ? Z_FINISH : Z_NO_FLUSH);
+			int produced = sizeof(outputBuffer) - stream.avail_out;
+			if (produced > 0 && (int)fwrite(outputBuffer, 1, produced, output) != produced) {
+				success = false;
+			}
+			if (code == Z_STREAM_END) {
+				break;
+			}
+			if (code != Z_OK && code != Z_BUF_ERROR) {
+				success = false;
+			}
+			if (code == Z_BUF_ERROR && remaining == 0 && stream.avail_in == 0) {
+				success = false;
+			}
+		}
+		inflateEnd(&stream);
+	}
+	else {
+		PspLog::write("unsupported zip method %d for %s\n", method, name);
+		success = false;
+	}
+
+	fclose(output);
+	if (!success) {
+		remove(outputPath);
+	}
+	return success;
 }

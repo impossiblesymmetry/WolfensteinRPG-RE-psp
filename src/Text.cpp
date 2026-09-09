@@ -8,6 +8,7 @@
 #include "Resource.h"
 #include "MenuStrings.h"
 #include "Entity.h"
+#include "PspLog.h"
 
 // --------------------
 // Localization Class
@@ -206,7 +207,6 @@ void Localization::finishTextLoading() {
 
 	this->textChunkStream->close();
 	if (this->textChunkStream != nullptr) {
-		this->textChunkStream->~InputStream();
 		delete this->textChunkStream;
 	}
 	this->textChunkStream = nullptr;
@@ -223,8 +223,17 @@ void Localization::loadTextFromIndex(int i, int textLastType) {
 	int n2 = this->textIndex[(textLastType + i * Strings::FILE_MAX) * 3 + 0];
 	int n3 = this->textIndex[(textLastType + i * Strings::FILE_MAX) * 3 + 1];
 	int n4 = this->textIndex[(textLastType + i * Strings::FILE_MAX) * 3 + 2];
+	PspLog::write("string record language=%d type=%d chunk=%d offset=%d size=%d buffer=%d\n",
+		i, textLastType, n2, n3, n4, this->textSizes[textLastType]);
+	if (n2 < 0 || n2 >= 8 || n3 < 0 || n4 < 0 || n3 + n4 > 200000) {
+		PspLog::write("invalid string record\n");
+		app->Error("Invalid string resource index\n");
+	}
 	if (this->textCurChunk != n2) {
-		this->textChunkStream->loadFile(Resources::RES_STRINGS_ARRAY[n2], InputStream::LOADTYPE_RESOURCE);
+		if (!this->textChunkStream->loadFile(Resources::RES_STRINGS_ARRAY[n2], InputStream::LOADTYPE_RESOURCE)) {
+			PspLog::write("string chunk load failed: %d\n", n2);
+			app->Error("String resource chunk missing\n");
+		}
 		this->textCurOffset = 0;
 		this->textCurChunk = n2;
 	}

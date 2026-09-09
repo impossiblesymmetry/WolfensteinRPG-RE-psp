@@ -5,6 +5,7 @@
 #include "App.h"
 #include "Resource.h"
 #include "Canvas.h"
+#include "PspLog.h"
 
 constexpr char* Resources::RES_STRINGS_ARRAY[];
 constexpr char* Resources::RES_MODEL_ARRAY[];
@@ -195,7 +196,7 @@ int* Resource::loadFileIndex(char* fileName) {
             int _shiftInt = this->shiftInt();
             //printf("_shiftByte %d\n", _shiftByte);
             //printf("_shiftInt %d\n", _shiftInt);
-            if (_shiftInt != 0) {
+			if (_shiftInt != 0 && n4 > 0) {
                 array[(n4 * 3) - 1] = _shiftInt - array[(n4 * 3) - 2];
             }
             if (_shiftByte != 0xff) {
@@ -216,25 +217,38 @@ int* Resource::loadFileIndex(char* fileName) {
     }*/
 
     IS.close();
-    IS.~InputStream();
     return array;
 }
 
 void Resource::initTableLoading() {
     Applet* app = CAppContainer::getInstance()->app;
     InputStream IS;
+    PspLog::stage("read tables.bin entry");
 
     if (IS.loadFile(Resources::RES_TABLES_BIN_GZ, InputStream::LOADTYPE_RESOURCE) == false) {
+        PspLog::write("tables.bin entry missing or unreadable\n");
         app->Error("getResource(%s) failed\n", Resources::RES_TABLES_BIN_GZ);
     }
+    PspLog::write("tables.bin size: %d bytes\n", IS.fileSize);
+    if (IS.fileSize < 128) {
+        PspLog::write("tables.bin is too small for its header\n");
+        app->Error("Invalid tables.bin resource\n");
+    }
 
+    PspLog::stage("read tables header");
     this->read(&IS, 128);
+    PspLog::write("tables header cursor: %d\n", IS.cursor);
     for (int i = 0; i < 32; ++i) {
         this->tableOffsets[i] = this->shiftInt();
-        //printf("this->tableOffsets[%d] %d\n", i, this->tableOffsets[i]);
+        PspLog::write("table offset[%d]: %d\n", i, this->tableOffsets[i]);
+        if (this->tableOffsets[i] < 0 || this->tableOffsets[i] > IS.fileSize) {
+            PspLog::write("invalid table offset[%d]: %d (file size %d)\n", i, this->tableOffsets[i], IS.fileSize);
+            app->Error("Invalid tables.bin table offset\n");
+        }
     }
+    PspLog::stage("tables header parsed");
     IS.close();
-    IS.~InputStream();
+    PspLog::stage("tables resource closed");
 }
 
 void Resource::beginTableLoading() {
@@ -324,7 +338,7 @@ void Resource::loadShortTable(short* array, int index) {
     this->prevOffset += sizeof(int) + size;
 }
 
-void Resource::loadIntTable(int* array, int index) {
+void Resource::loadIntTable(int32_t* array, int index) {
     this->seekTable(index);
     this->read(&this->prevIS, sizeof(int));
     int size = shiftInt() * sizeof(int);
