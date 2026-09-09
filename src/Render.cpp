@@ -878,6 +878,14 @@ void Render::draw2DSprite(int tileNum, int frame, int x, int y, int flags, int r
 	}
 
 	this->setupTexture(tileNum, frame, renderMode, renderFlags);
+	#ifdef WOLFENSTEIN_PSP
+	if (tileNum >= Enums::TILENUM_FIRST_DOOR && tileNum <= Enums::TILENUM_LAST_DOOR) {
+		PspLog::write("door texture state tile=%d media=%d size=%u image=%d x %d y %d\n",
+			tileNum, app->tinyGL->mediaID, app->tinyGL->textureBaseSize,
+			app->tinyGL->imageBounds[1] - app->tinyGL->imageBounds[0],
+			app->tinyGL->imageBounds[3] - app->tinyGL->imageBounds[2]);
+	}
+	#endif
 
 	int v12 = (176 * scaleFactor) / 0x10000;
 

@@ -837,9 +837,14 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	char* __b; // [sp+64h] [bp-424h]
 	uint8_t rgba[1024]; // [sp+6Bh] [bp-41Dh] BYREF
 	bool transAlpha = false;
+	int transparentPaletteEntries = 0;
+	int opaquePaletteEntries = 0;
 
 	v70 = b;
 	render = this->render;
+	#ifdef WOLFENSTEIN_PSP
+	PspLog::write("create texture tile=%d media=%d\n", n, mediaID);
+	#endif
 	v5 = render->mediaMappings[Enums::TILENUM_SKY_BOX];
 	/*if (mediaID == render->mediaMappings[Enums::TILENUM_FADE] && n == Enums::TILENUM_FADE) {
 		this->CreateFadeTexture(mediaID);
@@ -905,12 +910,20 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 		// [GEC] verifica que realmente este el color designado para la trasparencia
 		if ((v16[0] >= 250) && (v16[1] == 0) && (v16[2] >= 250)) {
 			transAlpha = true;
+			transparentPaletteEntries++;
+		}
+		else {
+			opaquePaletteEntries++;
 		}
 
 		v16 += 4;
 		v15++;
 	} while (v15 < 256);
 	__len = height * width;
+	#ifdef WOLFENSTEIN_PSP
+	PspLog::write("texture source tile=%d media=%d dims=%dx%d source=%d trans=%d paletteTransparent=%d paletteOpaque=%d\n",
+		n, mediaID, width, height, Size, transAlpha, transparentPaletteEntries, opaquePaletteEntries);
+	#endif
 	data = (char*)malloc(height * width + 512);
 	__b = data + 512;
 	v23 = this->render;
@@ -1150,6 +1163,10 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	}
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, texData);
+	#ifdef WOLFENSTEIN_PSP
+	PspLog::write("texture upload tile=%d media=%d tex=%u glError=0x%x\n",
+		n, mediaID, ct->texnum, glGetError());
+	#endif
 	free(texData);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, v70 ? GL_LINEAR : GL_NEAREST);
