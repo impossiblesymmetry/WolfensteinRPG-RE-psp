@@ -136,7 +136,6 @@ void gles::SetGLState() {
 
 	PFNGLACTIVETEXTUREPROC glActiveTexture = (PFNGLACTIVETEXTUREPROC)SDL_GL_GetProcAddress("glActiveTexture");
 	PFNGLCLIENTACTIVETEXTUREPROC glClientActiveTexture = (PFNGLCLIENTACTIVETEXTUREPROC)SDL_GL_GetProcAddress("glClientActiveTexture");
-	PspLog::write("GL texture functions: active=%p clientActive=%p\n", glActiveTexture, glClientActiveTexture);
 
 	glViewport(this->vPortRect[0], this->vPortRect[1], this->vPortRect[2], this->vPortRect[3]);
 	glScissor(this->vPortRect[0], this->vPortRect[1], this->vPortRect[2], this->vPortRect[3]);

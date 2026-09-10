@@ -943,9 +943,12 @@ void Render::draw2DSprite(int tileNum, int frame, int x, int y, int flags, int r
 	tinyGL->mv[2].y = tinyGL->mv[1].y - ((v33 * view5) >> 14);
 	tinyGL->mv[2].z = tinyGL->mv[1].z - ((v33 * view9) >> 14);
 
-	this->_gles->SetGLState();
-	bool v37 = this->_gles->DrawWorldSpaceSpriteLine(&tinyGL->mv[0], &tinyGL->mv[1], &tinyGL->mv[2], flags ^ 0x20000);
-	this->_gles->ResetGLState();
+	bool v37 = false;
+	if (this->_gles->isInit) {
+		this->_gles->SetGLState();
+		v37 = this->_gles->DrawWorldSpaceSpriteLine(&tinyGL->mv[0], &tinyGL->mv[1], &tinyGL->mv[2], flags ^ 0x20000);
+		this->_gles->ResetGLState();
+	}
 	if (!v37) {
 		app->tinyGL->drawClippedSpriteLine(vert1, vert2, vert3, flags, false);
 	}
@@ -958,12 +961,6 @@ void Render::renderSprite(int x, int y, int z, int tileNum, int frame, int flags
 void Render::renderSprite(int x, int y, int z, int tileNum, int frame, int flags, int renderMode, int scaleFactor, int renderFlags, int palIndex) {
 	Applet* app = CAppContainer::getInstance()->app;
 	int n10 = scaleFactor;
-	#ifdef WOLFENSTEIN_PSP
-	if (tileNum >= Enums::TILENUM_FIRST_DOOR && tileNum <= Enums::TILENUM_LAST_DOOR) {
-		PspLog::write("door sprite tile=%d frame=%d flags=0x%08x scale=%d\n",
-			tileNum, frame, flags, scaleFactor);
-	}
-	#endif
 
 	if ((flags & 0x80000000) != 0x0) { // SPRITE_FLAG_DOORLERP
 		scaleFactor = 65536;
@@ -1064,7 +1061,8 @@ void Render::renderSprite(int x, int y, int z, int tileNum, int frame, int flags
 				else {
 					this->setupPalette(app->tinyGL->getFogPalette(transform3DVerts[0].z << 16), renderMode, renderFlags);
 				}
-				if (!this->_gles->DrawWorldSpaceSpriteLine(&app->tinyGL->mv[0], &app->tinyGL->mv[1], &app->tinyGL->mv[2], flags)) {
+				if (!this->_gles->isInit ||
+					!this->_gles->DrawWorldSpaceSpriteLine(&app->tinyGL->mv[0], &app->tinyGL->mv[1], &app->tinyGL->mv[2], flags)) {
 					app->tinyGL->drawClippedSpriteLine(&transform3DVerts[1], &transform3DVerts[0], &transform3DVerts[2], flags, true);
 				}
 			}
