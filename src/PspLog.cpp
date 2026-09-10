@@ -4,6 +4,8 @@
 #include <cstdio>
 
 #ifdef WOLFENSTEIN_PSP
+#include <pspsysmem.h>
+
 namespace {
 FILE* logFile = nullptr;
 }
@@ -44,5 +46,16 @@ void write(const char* format, ...) {
 
 void stage(const char* name) {
     write("[stage] %s\n", name);
+}
+
+void memory(const char* where) {
+#ifdef WOLFENSTEIN_PSP
+    write("memory %s: totalFree=%u maxFree=%u\n",
+        where,
+        (unsigned)sceKernelTotalFreeMemSize(),
+        (unsigned)sceKernelMaxFreeMemSize());
+#else
+    (void)where;
+#endif
 }
 }

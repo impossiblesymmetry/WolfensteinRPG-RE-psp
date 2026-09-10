@@ -20,6 +20,11 @@
 gles* _glesObj;
 
 #define BYTES_TO_MEGABYTES(x)	(float)((float)(x) * (1.f / (1024 * 1024)))	// (1.f / (1024 * 1024)) -> 0,00000095367
+#ifdef WOLFENSTEIN_PSP
+#define MAX_ACTIVE_TEXELS		(1024 * 1024)
+#else
+#define MAX_ACTIVE_TEXELS		0x800000
+#endif
 #define VERT_COORDS_TO_FLOAT(x)	(float)((float)(x) * (1.f / 16384))	// (1.f / 16384) -> 0.000061035f
 #define TEXT_COORDS_TO_FLOAT(x)	(float)((float)(x) * (1.f / 1024))	// (1.f / 1024)  -> 0.00097656f
 #define COLOR_BYTE_TO_FLOAT(x)	(float)((float)(x) * (1.f / 256))	// (1.f / 256)   -> 0.0039062f
@@ -45,7 +50,12 @@ void gles::GLInit(Render* render) {
 	_glesObj = this;
 	this->render = render;
 	this->tinyGL = app->tinyGL;
+#ifdef WOLFENSTEIN_PSP
+	// TinyGL avoids PSP VRAM fragmentation from the iPhone-era texture cache.
+	this->isInit = false;
+#else
 	this->isInit = true;
+#endif
 
 	int j = 0;
 	for (int i = 2; i < 16; i++) {
@@ -60,6 +70,50 @@ void gles::GLInit(Render* render) {
 	this->activeChain.prev = &this->activeChain;
 	this->activeChain.next = &this->activeChain;
 	this->activeTexels = 0;
+}
+
+void gles::UnlinkTexture(glChain* ct) {
+	if (ct == nullptr) {
+		return;
+	}
+	if (ct->next != nullptr && ct->prev != nullptr) {
+		ct->next->prev = ct->prev;
+		ct->prev->next = ct->next;
+	}
+	ct->next = nullptr;
+	ct->prev = nullptr;
+}
+
+void gles::EvictOldestTexture() {
+	glChain* ct = this->activeChain.prev;
+	if (ct == nullptr || ct == &this->activeChain) {
+		return;
+	}
+
+	int media = (int)((intptr_t)ct - (intptr_t)this->chains) / (int)sizeof(glChain);
+	PspLog::write("evict texture media=%d tex=%u %ux%u activeTexels=%d\n",
+		media, ct->texnum, ct->width, ct->height, this->activeTexels);
+
+	this->activeTexels -= (int)(ct->width * ct->height);
+	if (this->activeTexels < 0) {
+		this->activeTexels = 0;
+	}
+
+	GLuint tex = ct->texnum;
+	this->UnlinkTexture(ct);
+	ct->texnum = 0;
+	ct->width = 0;
+	ct->height = 0;
+	if (tex != 0) {
+		glDeleteTextures(1, &tex);
+	}
+}
+
+void gles::EvictTextures(int extraTexels) {
+	while (this->activeChain.prev != &this->activeChain &&
+		this->activeTexels + extraTexels > MAX_ACTIVE_TEXELS) {
+		this->EvictOldestTexture();
+	}
 }
 
 bool gles::ClearBuffer(int color) {
@@ -252,22 +306,8 @@ void gles::CreateFadeTexture(int mediaID) {
 	#define FADE_WIDTH 16
 	#define FADE_HEIGHT 64
 
+	this->EvictTextures(FADE_WIDTH * FADE_HEIGHT);
 	this->activeTexels += (FADE_WIDTH * FADE_HEIGHT);
-	while (this->activeTexels > 0x800000)
-	{
-		ct = this->activeChain.prev;
-		assert(ct != &activeChain);
-		//__assert_rtn("CreateFadeTexture", "/Users/greghodges/doom2rpg/trunk/Doom2rpg_iphone/xcode/Classes/GLES.cpp", 366, "ct != &activeChain");
-
-		printf("Freeing media ID %i, %ix%i\n", (int)((intptr_t)ct - (intptr_t)this->chains) / sizeof(glChain), ct->width, ct->height);
-		ct->next->prev = ct->prev;
-		ct->prev->next = ct->next;
-		ct->prev = NULL;
-		ct->next = NULL;
-		glDeleteTextures(1, &ct->texnum);
-		ct->texnum = 0;
-		this->activeTexels -= (ct->width * ct->height);
-	}
 
 	ct = &this->chains[mediaID];
 	assert(ct->texnum == 0);
@@ -615,6 +655,12 @@ void gles::SetupTexture(int n, int n2, int renderMode, int flags) {
 		this->CreateTextureForMediaID(n, mediaID, true);
 	}
 
+	if (chain->texnum == 0 || chain->next == nullptr || chain->prev == nullptr) {
+		PspLog::write("setup texture skipped tile=%d media=%d tex=%u next=%p prev=%p\n",
+			n, mediaID, chain->texnum, chain->next, chain->prev);
+		return;
+	}
+
 	next = this->chains[(int)mediaID].next;
 	next->prev = chain->prev;
 	chain->prev->next = next;
@@ -921,10 +967,21 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	} while (v15 < 256);
 	__len = height * width;
 	#ifdef WOLFENSTEIN_PSP
-	PspLog::write("texture source tile=%d media=%d dims=%dx%d source=%d trans=%d paletteTransparent=%d paletteOpaque=%d\n",
-		n, mediaID, width, height, Size, transAlpha, transparentPaletteEntries, opaquePaletteEntries);
+	PspLog::write("texture source tile=%d media=%d dims=%dx%d source=%d trans=%d paletteTransparent=%d paletteOpaque=%d activeTexels=%d\n",
+		n, mediaID, width, height, Size, transAlpha, transparentPaletteEntries, opaquePaletteEntries, this->activeTexels);
+	PspLog::memory("before texture decode");
 	#endif
 	data = (char*)malloc(height * width + 512);
+	while (data == nullptr && this->activeChain.prev != &this->activeChain) {
+		PspLog::write("texture decode malloc retry media=%d bytes=%d\n", mediaID, height * width + 512);
+		this->EvictOldestTexture();
+		data = (char*)malloc(height * width + 512);
+	}
+	if (data == nullptr) {
+		PspLog::write("texture decode allocation failed media=%d bytes=%d\n", mediaID, height * width + 512);
+		PspLog::memory("decode malloc failed");
+		return;
+	}
 	__b = data + 512;
 	v23 = this->render;
 	v79 = render->mediaTexels[v7];
@@ -1064,6 +1121,9 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	}
 
 	memcpy(__b, v46, __len);
+	#ifdef WOLFENSTEIN_PSP
+	PspLog::write("texture decoded media=%d len=%d sprite=%d data=%p\n", mediaID, __len, v47, data);
+	#endif
 	if (v47)
 	{
 		if (transAlpha) {
@@ -1098,35 +1158,19 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 		v54 += 2;
 	} while (v54 != 512);
 
+	this->EvictTextures(__len);
 	this->activeTexels = __len + this->activeTexels;
-	while (this->activeTexels > 0x800000) {
-		ct = this->activeChain.prev;
-
-		assert(ct != &activeChain);
-		//__assert_rtn("CreateTextureForMediaID","/Users/greghodges/doom2rpg/trunk/Doom2rpg_iphone/xcode/Classes/GLES.cpp", 753,"ct != &activeChain");
-
-		printf ("Freeing media ID %i, %ix%i\n", (int)((intptr_t)ct - (intptr_t)this->chains) / sizeof(glChain), ct->width, ct->height);
-
-		next = ct->next;
-		next->prev = ct->prev;
-		prev = ct->prev;
-		ct->prev = nullptr;
-		prev->next = next;
-		ct->next = nullptr;
-		glDeleteTextures(1, &ct->texnum);
-		ct->texnum = 0;
-		this->activeTexels -= ct->width * ct->height;
-	}
 
 	ct = this->chains + mediaID;
-	assert(ct->texnum == 0);
-	//__assert_rtn("CreateTextureForMediaID","/Users/greghodges/doom2rpg/trunk/Doom2rpg_iphone/xcode/Classes/GLES.cpp", 774,"ct->texnum == 0");
-
-	assert(ct->next == nullptr);
-	//__assert_rtn("CreateTextureForMediaID","/Users/greghodges/doom2rpg/trunk/Doom2rpg_iphone/xcode/Classes/GLES.cpp", 775,"ct->next == NULL");
-
-	assert(ct->prev == nullptr);
-	//__assert_rtn("CreateTextureForMediaID","/Users/greghodges/doom2rpg/trunk/Doom2rpg_iphone/xcode/Classes/GLES.cpp", 776,"ct->prev == NULL");
+	if (ct->texnum != 0 || ct->next != nullptr || ct->prev != nullptr) {
+		PspLog::write("texture chain dirty media=%d tex=%u next=%p prev=%p\n",
+			mediaID, ct->texnum, ct->next, ct->prev);
+		if (ct->texnum != 0) {
+			glDeleteTextures(1, &ct->texnum);
+			ct->texnum = 0;
+		}
+		this->UnlinkTexture(ct);
+	}
 
 	next = this->activeChain.next;
 	ct->next = next;
@@ -1136,26 +1180,37 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	ct->width = width;
 	ct->height = height;
 	#ifdef WOLFENSTEIN_PSP
-	PspLog::write("texture media=%d dimensions=%d x %d data=%p\n", mediaID, width, height, data);
+	PspLog::write("texture media=%d dimensions=%d x %d data=%p activeTexels=%d\n", mediaID, width, height, data, this->activeTexels);
+	PspLog::memory("before texture upload");
 	#endif
 	printf("Allocating media ID %i, %ix%i, activeTexels = %3.1f meg\n", (int)((intptr_t)ct - (intptr_t)this->chains) / sizeof(glChain), width, height, BYTES_TO_MEGABYTES(this->activeTexels));
 
 	glGenTextures(1, &ct->texnum);
 	glBindTexture(GL_TEXTURE_2D, ct->texnum);
 
-	//PFNGLCOMPRESSEDTEXIMAGE2DPROC glCompressedTexImage2D = (PFNGLCOMPRESSEDTEXIMAGE2DPROC)SDL_GL_GetProcAddress("glCompressedTexImage2D");
-
-	//glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_PALETTE8_RGB5_A1_OES, width, height, 0, height * width + 512, data);
-
-	uint16_t* texData = (uint16_t*)malloc(width * height * 2);
-	if (texData == nullptr) {
-		PspLog::write("texture allocation failed media=%d bytes=%d\n", mediaID, width * height * 2);
-		glDeleteTextures(1, &ct->texnum);
-		ct->texnum = 0;
-		return;
-	}
 	uint16_t* texPal = (uint16_t*)data;
 	uint8_t* texData8 = (uint8_t*)data + 512;
+	uint16_t* texData = (uint16_t*)malloc(width * height * 2);
+	while (texData == nullptr && this->activeChain.prev != ct && this->activeChain.prev != &this->activeChain) {
+		PspLog::write("texture upload malloc retry media=%d bytes=%d\n", mediaID, width * height * 2);
+		this->EvictOldestTexture();
+		texData = (uint16_t*)malloc(width * height * 2);
+	}
+	if (texData == nullptr) {
+		PspLog::write("texture allocation failed media=%d bytes=%d\n", mediaID, width * height * 2);
+		PspLog::memory("upload malloc failed");
+		glDeleteTextures(1, &ct->texnum);
+		ct->texnum = 0;
+		this->activeTexels -= __len;
+		if (this->activeTexels < 0) {
+			this->activeTexels = 0;
+		}
+		this->UnlinkTexture(ct);
+		ct->width = 0;
+		ct->height = 0;
+		free(data);
+		return;
+	}
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
 			texData[(i * width) + j] = texPal[texData8[(i * width) + j]];
@@ -1164,8 +1219,38 @@ void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, texData);
 	#ifdef WOLFENSTEIN_PSP
+	GLenum uploadError = glGetError();
 	PspLog::write("texture upload tile=%d media=%d tex=%u glError=0x%x\n",
-		n, mediaID, ct->texnum, glGetError());
+		n, mediaID, ct->texnum, uploadError);
+	if (uploadError == GL_OUT_OF_MEMORY) {
+		PspLog::memory("gl out of memory");
+		while (this->activeChain.prev != ct && this->activeChain.prev != &this->activeChain) {
+			this->EvictOldestTexture();
+			glBindTexture(GL_TEXTURE_2D, ct->texnum);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, texData);
+			uploadError = glGetError();
+			PspLog::write("texture upload retry media=%d tex=%u glError=0x%x activeTexels=%d\n",
+				mediaID, ct->texnum, uploadError, this->activeTexels);
+			if (uploadError != GL_OUT_OF_MEMORY) {
+				break;
+			}
+		}
+		if (uploadError == GL_OUT_OF_MEMORY) {
+			PspLog::write("texture upload abandoned media=%d tex=%u\n", mediaID, ct->texnum);
+			glDeleteTextures(1, &ct->texnum);
+			ct->texnum = 0;
+			this->activeTexels -= __len;
+			if (this->activeTexels < 0) {
+				this->activeTexels = 0;
+			}
+			this->UnlinkTexture(ct);
+			ct->width = 0;
+			ct->height = 0;
+			free(texData);
+			free(data);
+			return;
+		}
+	}
 	#endif
 	free(texData);
 

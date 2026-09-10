@@ -28,6 +28,7 @@ void drawView(SDLGL* sdlGL);
 int main(int argc, char* args[]) {
     PspLog::open();
     PspLog::stage("main");
+    PspLog::memory("startup");
 
     try {
     int		UpTime = 0;
@@ -54,6 +55,7 @@ int main(int argc, char* args[]) {
 
     PspLog::stage("construct applet");
     CAppContainer::getInstance()->Construct(&sdlGL, &zipFile);
+    PspLog::memory("after construct");
     sdlGL.updateVideo(); // [GEC]
     PspLog::stage("enter main loop");
 

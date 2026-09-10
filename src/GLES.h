@@ -17,6 +17,7 @@ typedef struct _glChain
 	GLuint texnum;
 	GLuint width;
 	GLuint height;
+	bool unavailable;
 }glChain;
 
 typedef struct _Vertex
@@ -84,6 +85,9 @@ public:
 	bool DrawModelVerts(TGLVert* verts, int numVerts);
 	void SetupTexture(int n, int n2, int renderMode, int flags);
 	void CreateTextureForMediaID(int n, int mediaID, bool b);
+	void UnlinkTexture(glChain* ct);
+	void EvictOldestTexture();
+	void EvictTextures(int extraTexels);
 	bool DrawSkyMap();
 	void DrawPortalTexture(Image* img, int x, int y, int w, int h, float tx, float ty, float scale, float angle, char mode);
 	void TexCombineShift(int r, int g, int b); // [GEC]
