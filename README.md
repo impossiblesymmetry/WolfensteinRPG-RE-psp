@@ -1,5 +1,9 @@
 # Wolfenstein RPG for PSP
 
+An attempt to port Wolfenstein RPG Game to PSP
+This is a work-in-progress project, current status: running, but currently unplayable due to limited capacity of PSP's RAM. When there are a lot of enemies, game stutters. I did this port with vibe coding and I am still trying to learn how to code for PSP. Pull requests and any help are welcome!
+If you want to help, pm me at tg:@imp_symm
+
 This port builds a native PSP homebrew EBOOT with the local PSPDEV toolchain,
 SDL2, SDL2_mixer, OpenGL, OpenAL, zlib, and the existing hash library. Desktop
 CMake builds remain unchanged.
