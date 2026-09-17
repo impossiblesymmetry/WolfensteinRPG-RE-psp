@@ -245,6 +245,13 @@ uint8_t* ZipFile::readZipFileEntry(const char* name, int* sizep) {
 
 	PspLog::write("zip entry %s: method=%d compressed=%d uncompressed=%d\n",
 		name, method, entry->csize, entry->usize);
+#ifdef WOLFENSTEIN_PSP
+	// OpenAL effects are fully resident; leave large ambient clips to a streaming path.
+	if (strstr(name, "/sounds/") != nullptr && entry->usize > (256 * 1024)) {
+		PspLog::write("skipping oversized PSP effect %s (%d bytes)\n", name, entry->usize);
+		return nullptr;
+	}
+#endif
 	cdata = (uint8_t*) malloc(entry->csize);
 	if (cdata == nullptr) {
 		PspLog::write("zip allocation failed for compressed data (%d bytes)\n", entry->csize);

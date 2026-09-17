@@ -831,22 +831,6 @@ bool Render::beginLoadMap(int mapNameID) {
 	this->postProcessSprites();
 	app->canvas->updateLoadingBar(false);
 
-	int skyIndex = ((this->mapNameID - 1) / 3 % 3) * 2;
-	int skyPal = app->resource->getNumTableShorts(skyIndex + 19);
-	int skyTexel = app->resource->getNumTableBytes(skyIndex + 20);
-
-	this->skyMapPalette = new uint16_t * [16];
-	for (int i = 0; i < 16; i++) {
-		this->skyMapPalette[i] = new uint16_t[skyPal];
-	}
-	this->skyMapTexels = new uint8_t[skyTexel];
-
-	app->resource->beginTableLoading();
-	app->resource->loadUShortTable(this->skyMapPalette[0], skyIndex + 19);
-	app->resource->loadUByteTable(this->skyMapTexels, skyIndex + 20);
-	app->resource->finishTableLoading();
-	app->canvas->updateLoadingBar(false);
-
 	for (int n19 = 0; n19 < 1024; n19++) {
 		if (this->mediaPalettes[n19][0] != nullptr) {
 			int length = this->mediaPalettesSizes[n19];
@@ -2506,10 +2490,6 @@ void Render::buildFogTables(int fogColor) {
 				buildFogTable();
 			}
 		}
-		this->fogTableBase = this->skyMapPalette[0];
-		this->fogTableDest = this->skyMapPalette[i];
-		this->fogTableBaseSize = 256; // Pc port only
-		this->buildFogTable();
 	}
 	this->buildFogTable(203, 0, 0xFF000000);
 	fogColor = ((n * 180 >> 8 & 0xFF) << 24 | (app->tinyGL->fogColor & 0xFFFFFF));
@@ -2683,6 +2663,9 @@ uint16_t* Render::getPalette(int n, int n2, int n3) {
 
 void Render::setupTexture(int n, int n2, int renderMode, int renderFlags) {
 	Applet* app = CAppContainer::getInstance()->app;
+	if (n == Enums::TILENUM_SKY_BOX) {
+		return;
+	}
 
 	int n4 = this->mediaMappings[n] + n2;
 
@@ -2709,18 +2692,7 @@ void Render::setupTexture(int n, int n2, int renderMode, int renderFlags) {
 
 	int n5;
 	int n6;
-	if (n == Enums::TILENUM_SKY_BOX) {
-		app->tinyGL->textureBase = this->skyMapTexels;
-		app->tinyGL->paletteBase = this->skyMapPalette;
-		app->tinyGL->textureBaseSize = 512 * 512; // new
-		app->tinyGL->paletteBaseSize = 256; // new
-		app->tinyGL->mediaID = -1; // new
-		this->isSkyMap = true;
-		n5 = 9;
-		n6 = 9;
-
-	}
-	else {
+	{
 		app->tinyGL->textureBase = this->mediaTexels[this->mediaTexelSizes[n4] & 0x3FFF];
 		app->tinyGL->paletteBase = this->mediaPalettes[this->mediaPalColors[n4] & 0x3FFF];
 		app->tinyGL->textureBaseSize = this->mediaTexelSizes2[this->mediaTexelSizes[n4] & 0x3FFF]; // [GEC] new
@@ -2967,13 +2939,6 @@ void Render::render(int viewX, int viewY, int viewZ, int viewAngle, int viewPitc
 	if (app->canvas->state != Canvas::ST_AUTOMAP) {
 		if ((this->renderMode & 0x20) != 0x0) {
 			app->tinyGL->clearColorBuffer(0xFFFF00FF);
-		}
-		else if (this->skyMapTexels != nullptr && app->game->scriptStateVars[Enums::CODEVAR_DRAW_SKYMAP] != 0 && !(this->renderMode & 0x20)) {
-			if (!this->_gles->DrawSkyMap()) {
-				int skyMapX = (this->skyMapX >> 3) + 276;
-				int skyMapY = (this->skyMapY >> 3) + 15;
-				this->drawSkyMap(skyMapX + (skyMapY << 9));
-			}
 		}
 		else {
 			int fogColor = 0;

@@ -217,6 +217,15 @@ void Sound::openAL_PlaySound(ALuint source, ALint loop) {
 
 void Sound::openAL_LoadSound(int resID, Sound::SoundStream* channel) {
 	ALenum error;
+	#ifdef WOLFENSTEIN_PSP
+		int pspSoundIndex = resID - 1000;
+		if (resID == 1161 || (pspSoundIndex >= 0 && pspSoundIndex < 162 &&
+			strcmp(Sounds::RESOURCE_FILE_NAMES[pspSoundIndex], "wind_whistle.wav") == 0)) {
+		PspLog::write("skipping PSP ambient effect at loader: wind_whistle.wav\n");
+		channel->resID = -1;
+		return;
+	}
+	#endif
 	printf("openAL_LoadSound... resID: %d buffer: %d\n", resID, channel->bufferId);
 	int index = (uint16_t)(resID - 1000);
 	OpenAL_ERROR(596);
@@ -226,7 +235,9 @@ void Sound::openAL_LoadSound(int resID, Sound::SoundStream* channel) {
 		OpenAL_ERROR(606);
 	}
 	else {
-		this->app->Error("Sound resource not found\n!");
+		PspLog::write("skipping unavailable sound resource: %s\n",
+			Sounds::RESOURCE_FILE_NAMES[index]);
+		channel->resID = -1;
 	}
 }
 
@@ -456,6 +467,11 @@ void Sound::playSound(int16_t resID, uint8_t flags, int priority, bool a5) {
 		}
 		return;
 	}
+	// This ambient clip is too large for a resident OpenAL effect on PSP.
+	if (resID == 1161) { // wind_whistle.wav
+		PspLog::write("skipping PSP ambient effect: %s\n", Sounds::RESOURCE_FILE_NAMES[161]);
+		return;
+	}
 #endif
 
 	int v5; // r5
@@ -573,6 +589,12 @@ void Sound::playSound(int16_t resID, uint8_t flags, int priority, bool a5) {
 				alSourceStop(channel->sourceId);
 				alSourcei(channel->sourceId, AL_BUFFER, NULL);
 				this->openAL_LoadSound(v5, &this->channel[FreeSlot]);
+				if (channel->resID == -1) {
+					alSourcei(channel->sourceId, AL_BUFFER, NULL);
+					channel->priority = 1;
+					channel->fadeInProgress = false;
+					return;
+				}
 				alSourcei(channel->sourceId, AL_BUFFER, channel->bufferId);
 
 				if (channel->resID >= 1070 && (channel->resID <= 1079 || channel->resID == 1155)) {

@@ -633,6 +633,9 @@ bool gles::DrawModelVerts(TGLVert* verts, int numVerts) {
 
 void gles::SetupTexture(int n, int n2, int renderMode, int flags) {
 	Applet* app = CAppContainer::getInstance()->app;
+	if (n == Enums::TILENUM_SKY_BOX) {
+		return;
+	}
 	glChain* chain;
 	glChain* next;
 	glChain* prev;
@@ -826,6 +829,9 @@ void gles::SetupTexture(int n, int n2, int renderMode, int flags) {
 void gles::CreateTextureForMediaID(int n, int mediaID, bool b) {
 	//printf("CreateTextureForMediaID %d\n", mediaID);
 	Applet* app = CAppContainer::getInstance()->app;
+	if (n == Enums::TILENUM_SKY_BOX || mediaID == app->render->mediaMappings[Enums::TILENUM_SKY_BOX]) {
+		return;
+	}
 
 	Render* render; // r2
 	int v5; // r1

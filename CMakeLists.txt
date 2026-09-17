@@ -3,6 +3,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 project(WolfensteinRPG)
 
+set(WOLFENSTEIN_BUILD_ID "wolfprg-psp-20260917-skyoff-r1" CACHE STRING "Runtime build identifier")
+
 if(MSVC)
 	add_definitions("/D_CRT_SECURE_NO_WARNINGS")
 endif()

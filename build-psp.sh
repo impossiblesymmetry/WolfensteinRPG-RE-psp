@@ -15,7 +15,8 @@ PATH="$PSPDEV/bin:$PATH"
 export PATH
 
 psp-cmake -S . -B build-psp \
-    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWOLFENSTEIN_PSP_LOG=ON
 cmake --build build-psp --parallel
 
 echo "Built build-psp/src/EBOOT.PBP"

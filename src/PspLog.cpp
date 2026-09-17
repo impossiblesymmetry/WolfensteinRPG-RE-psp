@@ -3,6 +3,10 @@
 #include <cstdarg>
 #include <cstdio>
 
+#ifndef WOLFENSTEIN_BUILD_ID
+#define WOLFENSTEIN_BUILD_ID "desktop"
+#endif
+
 #ifdef WOLFENSTEIN_PSP
 #include <pspsysmem.h>
 
@@ -18,10 +22,10 @@ void open() {
     logFile = std::fopen("./WolfensteinRPG.log", "w");
 #endif
 #if WOLFENSTEIN_PSP_LOG
-    write("WolfensteinRPG PSP log started\n");
+    write("WolfensteinRPG PSP build=%s log started\n", WOLFENSTEIN_BUILD_ID);
 #endif
 #else
-    write("WolfensteinRPG PSP log started\n");
+    write("WolfensteinRPG PSP build=%s log started\n", WOLFENSTEIN_BUILD_ID);
 #endif
 }
 

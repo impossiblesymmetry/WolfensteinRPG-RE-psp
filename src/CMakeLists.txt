@@ -29,6 +29,7 @@ if(PSP)
     find_package(SDL2_mixer REQUIRED)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         WOLFENSTEIN_PSP=1
+        WOLFENSTEIN_BUILD_ID="${WOLFENSTEIN_BUILD_ID}"
         WOLFENSTEIN_PSP_LOG=$<BOOL:${WOLFENSTEIN_PSP_LOG}>)
     target_compile_options(${PROJECT_NAME} PRIVATE -include cstdint -Wno-narrowing -fpermissive)
     target_link_libraries(${PROJECT_NAME} SDL2::mixer
