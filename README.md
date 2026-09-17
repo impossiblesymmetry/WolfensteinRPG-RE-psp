@@ -1,7 +1,9 @@
 # Wolfenstein RPG for PSP
 
-An attempt to port Wolfenstein RPG Game to PSP
-This is a work-in-progress project, current status: running, but currently unplayable due to limited capacity of PSP's RAM. When there are a lot of enemies, game stutters. I did this port with vibe coding and I am still trying to learn how to code for PSP. Pull requests and any help are welcome!
+An attempt to port Wolfenstein RPG Game to PSP.
+It is based on Erick194 Reverse Engineering project.
+All the credits to him.
+This is a work-in-progress project, current status: running, but currently unplayable due to limited capacity of PSP's RAM. When there are a lot of enemies, game stutters. I vibe coded this port and I am still trying to learn how to code for PSP. Pull requests and any help are welcome!
 If you want to help, pm me at tg:@imp_symm
 
 This port builds a native PSP homebrew EBOOT with the local PSPDEV toolchain,
